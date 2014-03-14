@@ -6,6 +6,64 @@ if (version_compare(PHP_VERSION, '5.3.0') < 0) {
 
 Phar::mapPhar();
 $basePath = 'phar://' . __FILE__ . '/';
+//Override CI load_class function
+if (!function_exists('load_class')) {
+    function &load_class($class, $directory = 'libraries', $prefix = 'CI_')
+    {
+        static $_classes = array();
+
+        // Does the class exist?  If so, we're done...
+        if (isset($_classes[$class])) {
+            return $_classes[$class];
+        } else {
+            if (class_exists($name = $prefix . $class)) {
+                $_classes[$class] = new $name();
+                is_loaded($class);
+                return load_class($class, $directory, $prefix);
+            }
+        }
+
+        $name = FALSE;
+
+        // Look for the class first in the local application/libraries folder
+        // then in the native system/libraries folder
+        foreach (array(APPPATH, BASEPATH) as $path) {
+            if (file_exists($path . $directory . '/' . $class . '.php')) {
+                $name = $prefix . $class;
+
+                if (class_exists($name) === FALSE) {
+                    require($path . $directory . '/' . $class . '.php');
+                }
+
+                break;
+            }
+        }
+
+        // Is the request a class extension?  If so we load it too
+        if (file_exists(APPPATH . $directory . '/' . config_item('subclass_prefix') . $class . '.php')) {
+            $name = config_item('subclass_prefix') . $class;
+
+            if (class_exists($name) === FALSE) {
+                require(APPPATH . $directory . '/' . config_item('subclass_prefix') . $class . '.php');
+            }
+        }
+
+        // Did we find the class?
+        if ($name === FALSE) {
+            // Note: We use exit() rather then show_error() in order to avoid a
+            // self-referencing loop with the Excptions class
+            debug_print_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+            exit('Unable to locate the specified class: ' . $class . '.php');
+        }
+
+        // Keep track of what we just loaded
+        is_loaded($class);
+
+        $_classes[$class] = new $name();
+        return $_classes[$class];
+    }
+}
+
 //CI Class Auto-loader
 spl_autoload_register(function ($class) {
     /**
@@ -15,16 +73,13 @@ spl_autoload_register(function ($class) {
         static $system_dir;
         if (!isset($system_dir)) {
             @include_once BASEPATH . "/helpers/file_helper.php";
-            $system_dir = get_dir_file_info(BASEPATH,false,true);
+            $system_dir = get_dir_file_info(BASEPATH, false, true);
             if ((!$system_dir)) {
                 return false;
             }
         }
         if (array_key_exists(str_replace('CI_', '', $class) . '.php', $system_dir)) {
             include_once $system_dir[str_replace('CI_', '', $class) . '.php']['server_path'];
-            if(function_exists('is_loaded')){
-                is_loaded($class);
-            }
             return true;
         }
     }
@@ -127,7 +182,7 @@ if (CI_AS_LIBRARY) {
         $to_eval = trim($matches[0][0]);
         $to_eval .= 'return CI_VERSION;';
         $v = eval($to_eval);
-        if(!defined('CI_VERSION')){
+        if (!defined('CI_VERSION')) {
             define('CI_VERSION', $v);
         }
     } else {
@@ -146,7 +201,7 @@ if (CI_AS_LIBRARY) {
         $to_eval = trim($matches[0][0]);
         $to_eval .= 'return CI_CORE;';
         $v = eval($to_eval);
-        if(!defined('CI_CORE')){
+        if (!defined('CI_CORE')) {
             define('CI_CORE', $v);
         }
     } else {
@@ -171,10 +226,10 @@ if (CI_AS_LIBRARY) {
     if (isset($assign_to_config['subclass_prefix']) AND $assign_to_config['subclass_prefix'] != '') {
         get_config(array('subclass_prefix' => $assign_to_config['subclass_prefix']));
     }
-    $BM =& load_class('Benchmark', 'core');
-    $BM->mark('total_execution_time_start');
-    $BM->mark('loading_time:_base_classes_start');
-    $EXT =& load_class('Hooks', 'core');
+    //$BM =& load_class('Benchmark', 'core');
+    //$BM->mark('total_execution_time_start');
+    //$BM->mark('loading_time:_base_classes_start');
+    //$EXT =& load_class('Hooks', 'core');
     $CFG =& load_class('Config', 'core');
     // Do we have any manually set config items in the index.php file?
     if (isset($assign_to_config)) {
@@ -182,12 +237,6 @@ if (CI_AS_LIBRARY) {
     }
     $UNI =& load_class('Utf8', 'core');
     $URI =& load_class('URI', 'core');
-    $RTR =& load_class('Router', 'core');
-    $RTR->_set_routing();
-    // Set any routing overrides that may exist in the main index file
-    if (isset($routing)) {
-        $RTR->_set_overrides($routing);
-    }
     $SEC =& load_class('Security', 'core');
     $IN =& load_class('Input', 'core');
     $LANG =& load_class('Lang', 'core');
