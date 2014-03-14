@@ -1,0 +1,4 @@
+*.phar*
+compiled/*
+compiled/!.gitkeep
+.idea
