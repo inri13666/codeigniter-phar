@@ -88,6 +88,34 @@ spl_autoload_register(function ($class) {
     }
 }, false, true);
 
+/**
+ * Akuma Auto-loader For Namespaced Classes at Application Folder,
+ * But Note in this case all files and folders must be lower-cased
+ */
+spl_autoload_register(function ($class) {
+    /**
+     * Do Not Handle Classes From System
+     */
+    if (strpos($class, 'CI_') === 0) {
+        return false;
+    }
+    /*
+    static $application_dir;
+
+    if (!isset($application_dir)){
+        @include_once BASEPATH . "/helpers/file_helper.php";
+       $application_dir = get_dir_file_info(APPPATH, false, true);
+    }
+    */
+
+    if (require_once(APPPATH . strtolower($class) . 'php')) {
+        $_class = trim(str_replace(dirname($class), '', $class), '\\/');
+        if (!class_exists($_class, false)) {
+            class_alias($class, $_class);
+        }
+    }
+
+}, false, true);
 
 /**
  * Default ENVIRONMENT
