@@ -107,13 +107,16 @@ spl_autoload_register(function ($class) {
        $application_dir = get_dir_file_info(APPPATH, false, true);
     }
     */
-
-    if (require_once(APPPATH . strtolower($class) . 'php')) {
-        $_class = trim(str_replace(dirname($class), '', $class), '\\/');
-        if (!class_exists($_class, false)) {
-            class_alias($class, $_class);
+    if (is_readable(APPPATH . strtolower($class) . '.php')) {
+        if (require_once(APPPATH . strtolower($class) . '.php')) {
+            $_class = trim(str_replace(dirname($class), '', $class), '\\/');
+            if (!class_exists($_class, false)) {
+                class_alias($class, $_class);
+            }
+            return true;
         }
     }
+    return false;
 
 }, false, true);
 
